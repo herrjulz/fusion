@@ -9,7 +9,10 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 )
 
-func Parse(dockerfile io.Reader) (docker.Entrypoint, error) {
+type Parser struct {
+}
+
+func (p Parser) ParseDockerfileEntrypoint(dockerfile io.Reader) (docker.Entrypoint, error) {
 	result, err := parser.Parse(dockerfile)
 	if err != nil {
 		return docker.Entrypoint{}, err

@@ -1,9 +1,6 @@
 package kube_test
 
 import (
-	"bytes"
-	"io"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/apps/v1"
@@ -18,15 +15,13 @@ var _ = Describe("Decoder", func() {
 	Context("When a kubernetes yaml is provided", func() {
 
 		var (
-			err                error
-			kubeObjects        io.Reader
-			parsedObjects      []interface{}
+			kubeObjects        string
 			expectedDeployment v1.Deployment
-			//		expectedStatefulSet v1.StatefulSet
+			expectedConfigMap  core.ConfigMap
 		)
 
 		BeforeEach(func() {
-			kubeObjects = bytes.NewBufferString(`---
+			kubeObjects = `---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,7 +38,30 @@ spec:
         image: opi
         ports:
         - containerPort: 80
-`)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "eirini-opi"
+spec:
+  externalIPs: 1.2.3.4
+  ports:
+    - port: 8085
+      protocol: TCP
+      name: opi
+  selector:
+    name: "eirini"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "eirini"
+data:
+  opi.yaml: |
+    opi:
+      kube_namespace: mars
+      nats_password: deeznatz
+`
 			replicas := int32(2)
 
 			expectedDeployment = v1.Deployment{
@@ -72,12 +90,28 @@ spec:
 			expectedDeployment.Spec.Template.Labels = map[string]string{
 				"run": "/bin/opi",
 			}
+
+			expectedConfigMap = core.ConfigMap{
+				Data: map[string]string{
+					"opi.yaml": `opi:
+  kube_namespace: mars
+  nats_password: deeznatz
+`,
+				},
+			}
+			expectedConfigMap.Name = "eirini"
+			expectedConfigMap.Kind = "ConfigMap"
+			expectedConfigMap.APIVersion = "v1"
 		})
 
-		It("should parse the objects in the yaml", func() {
-			parsedObjects, err = ParseKubeObjects(kubeObjects)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsedObjects[0].(v1.Deployment)).To(Equal(expectedDeployment))
+		It("should parse the deployment", func() {
+			objectGroup := ParseKubeObjects([]byte(kubeObjects))
+			Expect(objectGroup.Deployment).To(Equal(expectedDeployment))
+		})
+
+		FIt("should parse the configMap", func() {
+			objectGroup := ParseKubeObjects([]byte(kubeObjects))
+			Expect(objectGroup.ConfigMap).To(Equal(expectedConfigMap))
 		})
 	})
 
