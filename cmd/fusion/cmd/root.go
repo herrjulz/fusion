@@ -11,6 +11,8 @@ import (
 	"github.com/JulzDiverse/fusion/bpm"
 	"github.com/JulzDiverse/fusion/docker/entrypoint"
 	"github.com/JulzDiverse/fusion/kube"
+	"github.com/JulzDiverse/fusion/monit"
+	"github.com/JulzDiverse/fusion/packaging"
 	"github.com/JulzDiverse/fusion/spec"
 	"github.com/JulzDiverse/fusion/templates"
 	"github.com/ghodss/yaml"
@@ -109,6 +111,33 @@ func fuse(cmd *cobra.Command, args []string) {
 	}
 
 	err = ioutil.WriteFile(filepath.Join(templatePath, "bpm.yml.erb"), bpmYaml, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	//4. Create Monitfile
+	monitfile := monit.Create("opi")
+	err = ioutil.WriteFile(filepath.Join(jobPath, "monit"), []byte(monitfile), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	//5. Create Packaging
+	packagingPath := filepath.Join(conf.BoshReleaseDir, "packages", spec.Name)
+	err = os.MkdirAll(packagingPath, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	packageSpecFile := packaging.CreateSpec(spec.Name, "opi")
+	packagingFile := packaging.CreateScript("opi", conf.BinaryDownloadURL)
+
+	err = ioutil.WriteFile(filepath.Join(packagingPath, "spec"), []byte(packageSpecFile), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile(filepath.Join(packagingPath, "packaging"), []byte(packagingFile), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
